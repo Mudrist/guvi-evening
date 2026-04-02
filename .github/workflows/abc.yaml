@@ -1,42 +1,50 @@
 name: Production Deploy
 
 on:
-  push:
-    branches:
-      - main
+  push:
+    branches:
+      - main
 
 jobs:
-  deploy:
-    runs-on: ubuntu-latest
+  deploy:
+    runs-on: ubuntu-latest
 
-    steps:
+    steps:
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            echo "🚀 Starting Deployment"
 
-      - name: Checkout Code
-        uses: actions/checkout@v3
+            # Update system
+            sudo yum update -y
 
-      - name: Deploy Application
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
+            # Install Apache if not installed
+            if ! command -v httpd &> /dev/null
+            then
+              sudo yum install httpd -y
+              sudo systemctl enable httpd
+              sudo systemctl start httpd
+            fi
 
-          script: |
+            # Create index.html
+            echo "📄 Creating Hello World page"
+            sudo bash -c 'cat > /var/www/html/index.html <<EOF
+            <!DOCTYPE html>
+            <html>
+            <head>
+              <title>Hello</title>
+            </head>
+            <body>
+              <h1>Hello World 🚀</h1>
+            </body>
+            </html>
+            EOF'
 
-            echo "Updating system"
-            sudo yum update -y
+            # Restart Apache
+            sudo systemctl restart httpd
 
-            echo "Installing Apache"
-            sudo yum install httpd -y
-
-            echo "Starting Apache"
-            sudo systemctl enable httpd
-            sudo systemctl start httpd
-
-            echo "Installing Git"
-            sudo yum install git -y
-
-            echo "Deploying application"
-            sudo mkdir -p /var/www/app
-            cd /var/www/app
-            echo "Setting permissions"
+            echo "✅ Deployment Complete"
